@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { notFound } from 'next/navigation';
 import { getProfileByUsername } from '@/lib/redis-data';
 import { CATEGORY_MAP } from '@/lib/categories';

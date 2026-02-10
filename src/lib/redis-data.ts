@@ -1,5 +1,5 @@
 import { redis } from './redis';
-import { AgentProfile, Capability, CategoryId } from '@/types';
+import { AgentProfile, AgentRatingSummary, Capability, CategoryId, Review } from '@/types';
 
 // ─── Key Helpers ─────────────────────────────────────────────
 
@@ -10,6 +10,10 @@ const KEYS = {
   published: 'agentpages:published',
   category: (cat: CategoryId) => `agentpages:category:${cat}`,
   searchNames: 'agentpages:search:names',
+  review: (username: string, githubId: string) => `agentpages:review:${username}:${githubId}`,
+  reviews: (username: string) => `agentpages:reviews:${username}`,
+  ratingSum: (username: string) => `agentpages:rating:sum:${username}`,
+  ratingCount: (username: string) => `agentpages:rating:count:${username}`,
 };
 
 // ─── Reserved usernames ──────────────────────────────────────
@@ -17,7 +21,7 @@ const KEYS = {
 const RESERVED_USERNAMES = new Set([
   'api', 'admin', 'settings', 'login', 'directory',
   'about', 'help', 'support', 'docs', 'blog',
-  'static', 'public', 'assets', 'favicon',
+  'static', 'public', 'assets', 'favicon', 'hire',
 ]);
 
 export function isUsernameReserved(username: string): boolean {
@@ -35,6 +39,7 @@ function serializeProfile(profile: AgentProfile): Record<string, string> {
     website: profile.website,
     githubId: profile.githubId,
     email: profile.email,
+    walletAddress: profile.walletAddress || '',
     capabilities: JSON.stringify(profile.capabilities),
     isPublished: profile.isPublished ? '1' : '0',
     createdAt: profile.createdAt,
@@ -58,6 +63,7 @@ function deserializeProfile(data: Record<string, string>): AgentProfile {
     website: data.website || '',
     githubId: data.githubId || '',
     email: data.email || '',
+    walletAddress: data.walletAddress || '',
     capabilities,
     isPublished: data.isPublished === '1',
     createdAt: data.createdAt || '',
@@ -225,4 +231,134 @@ export async function getRecentProfiles(limit: number = 6): Promise<AgentProfile
   return profiles
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
     .slice(0, limit);
+}
+
+// ─── Reviews ─────────────────────────────────────────────────
+
+function serializeReview(review: Review): Record<string, string> {
+  return {
+    id: review.id,
+    agentUsername: review.agentUsername,
+    reviewerGithubId: review.reviewerGithubId,
+    reviewerDisplayName: review.reviewerDisplayName,
+    reviewerAvatarUrl: review.reviewerAvatarUrl,
+    rating: String(review.rating),
+    comment: review.comment,
+    createdAt: review.createdAt,
+    updatedAt: review.updatedAt,
+  };
+}
+
+function deserializeReview(data: Record<string, string>): Review {
+  return {
+    id: data.id,
+    agentUsername: data.agentUsername || '',
+    reviewerGithubId: data.reviewerGithubId || '',
+    reviewerDisplayName: data.reviewerDisplayName || '',
+    reviewerAvatarUrl: data.reviewerAvatarUrl || '',
+    rating: parseInt(data.rating || '0', 10),
+    comment: data.comment || '',
+    createdAt: data.createdAt || '',
+    updatedAt: data.updatedAt || '',
+  };
+}
+
+export async function getReview(username: string, githubId: string): Promise<Review | null> {
+  const data = await redis.hgetall(KEYS.review(username, githubId));
+  if (!data || Object.keys(data).length === 0) return null;
+  return deserializeReview(data as Record<string, string>);
+}
+
+export async function getReviews(
+  username: string,
+  offset: number = 0,
+  limit: number = 10,
+): Promise<Review[]> {
+  const githubIds = await redis.zrange(KEYS.reviews(username), offset, offset + limit - 1, {
+    rev: true,
+  });
+  if (!githubIds.length) return [];
+
+  const pipeline = redis.pipeline();
+  for (const gid of githubIds) {
+    pipeline.hgetall(KEYS.review(username, gid as string));
+  }
+  const results = await pipeline.exec();
+  return results
+    .filter(
+      (r): r is Record<string, string> =>
+        r !== null && typeof r === 'object' && Object.keys(r).length > 0,
+    )
+    .map(deserializeReview);
+}
+
+export async function createOrUpdateReview(
+  review: Review,
+  oldRating?: number,
+): Promise<void> {
+  const pipeline = redis.pipeline();
+
+  // Store the review hash
+  pipeline.hset(
+    KEYS.review(review.agentUsername, review.reviewerGithubId),
+    serializeReview(review),
+  );
+
+  // Add/update in sorted set (score = timestamp for ordering)
+  pipeline.zadd(KEYS.reviews(review.agentUsername), {
+    score: new Date(review.updatedAt).getTime(),
+    member: review.reviewerGithubId,
+  });
+
+  // Update running sum/count atomically
+  if (oldRating !== undefined) {
+    // Updating existing review: adjust sum by difference
+    const diff = review.rating - oldRating;
+    pipeline.incrby(KEYS.ratingSum(review.agentUsername), diff);
+  } else {
+    // New review: add to sum and increment count
+    pipeline.incrby(KEYS.ratingSum(review.agentUsername), review.rating);
+    pipeline.incr(KEYS.ratingCount(review.agentUsername));
+  }
+
+  await pipeline.exec();
+}
+
+export async function getAgentRating(username: string): Promise<AgentRatingSummary> {
+  const pipeline = redis.pipeline();
+  pipeline.get(KEYS.ratingSum(username));
+  pipeline.get(KEYS.ratingCount(username));
+  const [sum, count] = await pipeline.exec();
+
+  const totalReviews = parseInt(String(count || '0'), 10);
+  const ratingSum = parseInt(String(sum || '0'), 10);
+
+  return {
+    averageRating: totalReviews > 0 ? ratingSum / totalReviews : 0,
+    totalReviews,
+  };
+}
+
+export async function getAgentRatings(
+  usernames: string[],
+): Promise<Record<string, AgentRatingSummary>> {
+  if (!usernames.length) return {};
+
+  const pipeline = redis.pipeline();
+  for (const u of usernames) {
+    pipeline.get(KEYS.ratingSum(u));
+    pipeline.get(KEYS.ratingCount(u));
+  }
+  const results = await pipeline.exec();
+
+  const ratings: Record<string, AgentRatingSummary> = {};
+  for (let i = 0; i < usernames.length; i++) {
+    const sum = parseInt(String(results[i * 2] || '0'), 10);
+    const count = parseInt(String(results[i * 2 + 1] || '0'), 10);
+    ratings[usernames[i]] = {
+      averageRating: count > 0 ? sum / count : 0,
+      totalReviews: count,
+    };
+  }
+  return ratings;
 }

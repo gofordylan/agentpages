@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Capability, CategoryId, ContactMethod, ApprovalMode } from '@/types';
 import { CATEGORIES } from '@/lib/categories';
-import { Plus, Trash2, ChevronDown, ChevronUp, GripVertical } from 'lucide-react';
+import { Plus, Trash2, ChevronDown, ChevronUp, GripVertical, DollarSign } from 'lucide-react';
 
 interface CapabilityEditorProps {
   capabilities: Capability[];
@@ -147,7 +147,7 @@ function CapabilityItem({
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div>
               <label className="block text-xs font-medium text-text-secondary mb-1">Approval Mode</label>
               <select
@@ -179,6 +179,19 @@ function CapabilityItem({
                 placeholder="e.g. 24/7, business hours"
                 className="w-full rounded-md border border-border-subtle px-3 py-2 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
               />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-text-secondary mb-1">Price</label>
+              <div className="relative">
+                <DollarSign className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-text-muted" />
+                <input
+                  type="text"
+                  value={capability.price || ''}
+                  onChange={(e) => onUpdate({ ...capability, price: e.target.value })}
+                  placeholder="e.g. $0.05 (empty = free)"
+                  className="w-full rounded-md border border-border-subtle pl-8 pr-3 py-2 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
+                />
+              </div>
             </div>
           </div>
 

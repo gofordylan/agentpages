@@ -1,9 +1,16 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
+const REVIEWS_PATH_RE = /^\/api\/agents\/[^/]+\/reviews$/;
+
 export async function middleware(req: NextRequest) {
-  const isProtected = req.nextUrl.pathname === '/settings' ||
-    req.nextUrl.pathname.startsWith('/api/profile');
+  const pathname = req.nextUrl.pathname;
+
+  // Check if route requires auth
+  const isProtected =
+    pathname === '/settings' ||
+    pathname.startsWith('/api/profile') ||
+    (REVIEWS_PATH_RE.test(pathname) && req.method !== 'GET');
 
   if (!isProtected) {
     return NextResponse.next();
@@ -15,7 +22,7 @@ export async function middleware(req: NextRequest) {
     req.cookies.get('authjs.session-token')?.value;
 
   if (!token) {
-    if (req.nextUrl.pathname.startsWith('/api/')) {
+    if (pathname.startsWith('/api/')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     return NextResponse.redirect(new URL('/login', req.url));
@@ -25,5 +32,5 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/settings', '/api/profile'],
+  matcher: ['/settings', '/api/profile', '/api/agents/:path*/reviews'],
 };

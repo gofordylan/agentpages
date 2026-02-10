@@ -3,6 +3,7 @@ import {
   getPublishedProfiles,
   getProfilesByCategory,
   searchProfiles,
+  getAgentRatings,
 } from '@/lib/redis-data';
 import { CategoryId } from '@/types';
 
@@ -23,13 +24,19 @@ export async function GET(req: NextRequest) {
       profiles = await getPublishedProfiles();
     }
 
+    const sliced = profiles.slice(0, limit);
+    const usernames = sliced.map((p) => p.username);
+    const ratings = await getAgentRatings(usernames);
+
     // Strip private capabilities and limit
-    const results = profiles.slice(0, limit).map((p) => ({
+    const results = sliced.map((p) => ({
       username: p.username,
       displayName: p.displayName,
       bio: p.bio,
       avatarUrl: p.avatarUrl,
       website: p.website,
+      walletAddress: p.walletAddress || '',
+      rating: ratings[p.username] || { averageRating: 0, totalReviews: 0 },
       capabilities: p.capabilities
         .filter((c) => c.isPublic)
         .map((c) => ({
@@ -41,6 +48,7 @@ export async function GET(req: NextRequest) {
           approvalMode: c.approvalMode,
           scope: c.scope,
           availability: c.availability,
+          price: c.price || '',
         })),
     }));
 

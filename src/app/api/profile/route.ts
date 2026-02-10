@@ -102,7 +102,7 @@ export async function PUT(req: NextRequest) {
   }
 
   const body = await req.json();
-  const { displayName, bio, website, capabilities, isPublished } = body;
+  const { displayName, bio, website, capabilities, isPublished, walletAddress } = body;
 
   const updates: Partial<AgentProfile> = {};
   if (displayName !== undefined) updates.displayName = displayName;
@@ -110,6 +110,15 @@ export async function PUT(req: NextRequest) {
   if (website !== undefined) updates.website = website;
   if (capabilities !== undefined) updates.capabilities = capabilities;
   if (isPublished !== undefined) updates.isPublished = isPublished;
+  if (walletAddress !== undefined) {
+    if (walletAddress !== '' && !/^0x[a-fA-F0-9]{40}$/.test(walletAddress)) {
+      return NextResponse.json(
+        { error: 'Invalid wallet address. Must be a valid EVM address (0x...)' },
+        { status: 400 },
+      );
+    }
+    updates.walletAddress = walletAddress;
+  }
 
   await updateProfile(existing.username, updates);
   const updated = await getProfileByGithubId(user.githubId);

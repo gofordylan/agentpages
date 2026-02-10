@@ -1,14 +1,14 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { AgentProfile, CategoryId } from '@/types';
+import { AgentProfile, AgentRatingSummary, CategoryId } from '@/types';
 import { CATEGORIES } from '@/lib/categories';
 import { AgentCard } from '@/components/AgentCard';
 import { SearchBar } from '@/components/SearchBar';
 import { Loader2 } from 'lucide-react';
 
 export default function DirectoryPage() {
-  const [profiles, setProfiles] = useState<AgentProfile[]>([]);
+  const [profiles, setProfiles] = useState<(AgentProfile & { rating?: AgentRatingSummary })[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<CategoryId | null>(null);
@@ -95,7 +95,7 @@ export default function DirectoryPage() {
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {profiles.map((p) => (
-            <AgentCard key={p.username} profile={p as AgentProfile} />
+            <AgentCard key={p.username} profile={p as AgentProfile} rating={p.rating} />
           ))}
         </div>
       )}

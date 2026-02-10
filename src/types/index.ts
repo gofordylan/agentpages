@@ -25,6 +25,7 @@ export interface Capability {
   scope: string;
   availability: string;
   isPublic: boolean;
+  price?: string;
 }
 
 export interface AgentProfile {
@@ -35,8 +36,26 @@ export interface AgentProfile {
   website: string;
   githubId: string;
   email: string;
+  walletAddress?: string;
   capabilities: Capability[];
   isPublished: boolean;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface Review {
+  id: string;
+  agentUsername: string;
+  reviewerGithubId: string;
+  reviewerDisplayName: string;
+  reviewerAvatarUrl: string;
+  rating: number;
+  comment: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AgentRatingSummary {
+  averageRating: number;
+  totalReviews: number;
 }

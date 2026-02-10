@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getProfileByUsername } from '@/lib/redis-data';
+import { getProfileByUsername, getAgentRating } from '@/lib/redis-data';
 
 export async function GET(
   _req: NextRequest,
@@ -14,6 +14,8 @@ export async function GET(
       return NextResponse.json({ error: 'Agent not found' }, { status: 404 });
     }
 
+    const [rating] = await Promise.all([getAgentRating(username)]);
+
     const publicCapabilities = profile.capabilities
       .filter((c) => c.isPublic)
       .map((c) => ({
@@ -26,6 +28,7 @@ export async function GET(
         approvalMode: c.approvalMode,
         scope: c.scope,
         availability: c.availability,
+        price: c.price || '',
       }));
 
     return NextResponse.json({
@@ -34,6 +37,8 @@ export async function GET(
       bio: profile.bio,
       avatarUrl: profile.avatarUrl,
       website: profile.website,
+      walletAddress: profile.walletAddress || '',
+      rating,
       capabilities: publicCapabilities,
       createdAt: profile.createdAt,
     });

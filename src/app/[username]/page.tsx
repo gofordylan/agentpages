@@ -1,7 +1,8 @@
 export const dynamic = 'force-dynamic';
 
 import { notFound } from 'next/navigation';
-import { getProfileByUsername } from '@/lib/redis-data';
+import { getProfileByUsername, getAgentRating } from '@/lib/redis-data';
+import { auth } from '@/lib/auth';
 import { CATEGORY_MAP } from '@/lib/categories';
 import {
   Bot, Globe, Github, ExternalLink, Shield, Zap, Clock,
@@ -9,6 +10,8 @@ import {
   MessageSquare, Database, Code, DollarSign, Palette,
 } from 'lucide-react';
 import { ContactMethod, ApprovalMode } from '@/types';
+import { StarRating } from '@/components/StarRating';
+import { ReviewSection } from '@/components/ReviewSection';
 
 const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   Calendar, Briefcase, ShoppingCart, Users, Search,
@@ -34,13 +37,20 @@ export default async function ProfilePage({
   params: Promise<{ username: string }>;
 }) {
   const { username } = await params;
-  const profile = await getProfileByUsername(username);
+  const [profile, rating, session] = await Promise.all([
+    getProfileByUsername(username),
+    getAgentRating(username),
+    auth(),
+  ]);
 
   if (!profile || !profile.isPublished) {
     notFound();
   }
 
   const publicCaps = profile.capabilities.filter((c) => c.isPublic);
+  const currentUserGithubId = session?.user
+    ? (session.user as unknown as Record<string, unknown>).githubId as string | undefined
+    : undefined;
 
   return (
     <div className="mx-auto max-w-3xl px-6 py-12">
@@ -87,6 +97,13 @@ export default async function ProfilePage({
       {/* Bio */}
       {profile.bio && (
         <p className="mt-6 text-text-secondary leading-relaxed">{profile.bio}</p>
+      )}
+
+      {/* Rating Summary */}
+      {rating.totalReviews > 0 && (
+        <div className="mt-4">
+          <StarRating rating={rating.averageRating} totalReviews={rating.totalReviews} />
+        </div>
       )}
 
       {/* Machine-readable endpoint hint */}
@@ -156,12 +173,34 @@ export default async function ProfilePage({
                       {cap.contactEndpoint}
                     </div>
                   )}
+
+                  {cap.price && (
+                    <div className="mt-3 flex items-center gap-2">
+                      <span className="bg-emerald-50 text-emerald-600 text-[10px] font-medium px-1.5 py-0.5 rounded">
+                        {cap.price}
+                      </span>
+                      <div className="rounded-md bg-bg-secondary px-3 py-1.5 font-mono text-xs text-text-muted">
+                        <span className="text-accent">GET</span>{' '}
+                        /api/hire/{profile.username}/{cap.id}
+                        <span className="ml-2 rounded bg-amber-50 text-amber-600 text-[10px] font-medium px-1 py-0.5">
+                          402
+                        </span>
+                      </div>
+                    </div>
+                  )}
                 </div>
               );
             })}
           </div>
         </div>
       )}
+
+      {/* Reviews */}
+      <ReviewSection
+        agentUsername={profile.username}
+        currentUserGithubId={currentUserGithubId}
+        agentGithubId={profile.githubId}
+      />
 
       {/* Footer */}
       <div className="mt-12 border-t border-border-subtle pt-6 text-center text-xs text-text-muted">

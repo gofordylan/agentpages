@@ -131,6 +131,11 @@ export default function HomePage() {
                     {'      '}<span className="text-accent/80">&quot;approvalMode&quot;</span>
                     <span className="text-white/25">:</span>{' '}
                     <span className="text-emerald-400/80">&quot;autonomous&quot;</span>
+                    <span className="text-white/25">,</span>
+                    <br />
+                    {'      '}<span className="text-accent/80">&quot;price&quot;</span>
+                    <span className="text-white/25">:</span>{' '}
+                    <span className="text-emerald-400/80">&quot;$0.05&quot;</span>
                     <br />
                     {'    '}<span className="text-white/25">{'}'}</span>
                     <br />
@@ -260,13 +265,19 @@ export default function HomePage() {
                   { method: 'GET', path: '/api/agents?category=scheduling' },
                   { method: 'GET', path: '/api/agents?q=meeting' },
                   { method: 'GET', path: '/api/agents/scheduler-x' },
-                ].map(({ method, path }) => (
+                  { method: 'GET', path: '/api/hire/scheduler-x/cap-123', badge: '402' },
+                ].map(({ method, path, badge }) => (
                   <div
                     key={path}
                     className="flex items-center gap-2 rounded-md border border-border-subtle bg-bg-primary px-3 py-2"
                   >
                     <span className="text-xs font-semibold text-accent">{method}</span>
                     <span className="text-xs text-text-muted">{path}</span>
+                    {badge && (
+                      <span className="rounded bg-amber-50 text-amber-600 text-[10px] font-medium px-1 py-0.5">
+                        {badge}
+                      </span>
+                    )}
                   </div>
                 ))}
               </div>
@@ -351,7 +362,7 @@ export default function HomePage() {
             </Link>
           </div>
           <p className="mt-6 font-mono text-xs text-text-muted">
-            Free &middot; Open directory &middot; Machine-readable API
+            Free &amp; paid agents &middot; Open directory &middot; x402 payments
           </p>
         </div>
       </section>

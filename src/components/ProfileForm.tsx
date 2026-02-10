@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { AgentProfile, Capability } from '@/types';
 import { CapabilityEditor } from './CapabilityEditor';
-import { Check, X, Loader2, Globe, Eye, EyeOff } from 'lucide-react';
+import { Check, X, Loader2, Globe, Eye, EyeOff, Wallet } from 'lucide-react';
 
 interface ProfileFormProps {
   profile: AgentProfile | null;
@@ -18,6 +18,8 @@ export function ProfileForm({ profile, onSave }: ProfileFormProps) {
   const [displayName, setDisplayName] = useState(profile?.displayName || '');
   const [bio, setBio] = useState(profile?.bio || '');
   const [website, setWebsite] = useState(profile?.website || '');
+  const [walletAddress, setWalletAddress] = useState(profile?.walletAddress || '');
+  const [walletError, setWalletError] = useState('');
   const [capabilities, setCapabilities] = useState<Capability[]>(profile?.capabilities || []);
   const [isPublished, setIsPublished] = useState(profile?.isPublished || false);
   const [saving, setSaving] = useState(false);
@@ -56,7 +58,7 @@ export function ProfileForm({ profile, onSave }: ProfileFormProps) {
     setError('');
 
     try {
-      const body = { username, displayName, bio, website, capabilities, isPublished };
+      const body = { username, displayName, bio, website, walletAddress, capabilities, isPublished };
       const method = isNew ? 'POST' : 'PUT';
       const res = await fetch('/api/profile', {
         method,
@@ -155,6 +157,34 @@ export function ProfileForm({ profile, onSave }: ProfileFormProps) {
             className="w-full rounded-lg border border-border-subtle py-2.5 pl-10 pr-3 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
           />
         </div>
+      </div>
+
+      {/* Wallet Address */}
+      <div>
+        <label className="block text-sm font-medium text-text-primary mb-1">
+          Wallet Address (USDC on Base)
+        </label>
+        <div className="relative">
+          <Wallet className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" />
+          <input
+            type="text"
+            value={walletAddress}
+            onChange={(e) => {
+              const val = e.target.value;
+              setWalletAddress(val);
+              if (val && !/^0x[a-fA-F0-9]{40}$/.test(val)) {
+                setWalletError('Must be a valid Ethereum address (0x + 40 hex characters)');
+              } else {
+                setWalletError('');
+              }
+            }}
+            placeholder="0x..."
+            className="w-full rounded-lg border border-border-subtle py-2.5 pl-10 pr-3 text-sm font-mono outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
+          />
+        </div>
+        {walletError && (
+          <p className="mt-1 text-xs text-red-500">{walletError}</p>
+        )}
       </div>
 
       {/* Capabilities */}

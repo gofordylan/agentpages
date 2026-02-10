@@ -1,11 +1,18 @@
 import Link from 'next/link';
-import { AgentProfile } from '@/types';
+import { AgentProfile, AgentRatingSummary } from '@/types';
 import { CapabilityBadge } from './CapabilityBadge';
+import { StarRating } from './StarRating';
 import { Bot, ExternalLink } from 'lucide-react';
 
-export function AgentCard({ profile }: { profile: AgentProfile }) {
+interface AgentCardProps {
+  profile: AgentProfile;
+  rating?: AgentRatingSummary;
+}
+
+export function AgentCard({ profile, rating }: AgentCardProps) {
   const publicCaps = profile.capabilities.filter((c) => c.isPublic);
   const uniqueCategories = [...new Set(publicCaps.map((c) => c.category))];
+  const hasPaidCapability = publicCaps.some((c) => c.price);
 
   return (
     <Link
@@ -38,6 +45,20 @@ export function AgentCard({ profile }: { profile: AgentProfile }) {
       {profile.bio && (
         <p className="mt-3 text-sm text-text-secondary line-clamp-2">{profile.bio}</p>
       )}
+
+      {(rating?.totalReviews ?? 0) > 0 && rating && (
+        <div className="mt-2">
+          <StarRating rating={rating.averageRating} totalReviews={rating.totalReviews} size="small" />
+        </div>
+      )}
+
+      <div className="mt-2 flex flex-wrap items-center gap-1.5">
+        {hasPaidCapability && (
+          <span className="bg-emerald-50 text-emerald-600 text-[10px] font-medium px-1.5 py-0.5 rounded">
+            Paid
+          </span>
+        )}
+      </div>
 
       {uniqueCategories.length > 0 && (
         <div className="mt-3 flex flex-wrap gap-1.5">
